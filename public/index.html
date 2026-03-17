@@ -707,7 +707,7 @@
           <div id="nota-metricas" style="display: none; background: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; color: #0066cc;">
             <i class="fas fa-info-circle" style="margin-right: 8px;"></i>
             <strong>Configuración avanzada:</strong> Para métricas más precisas, creá la tabla <code>metricas_bot</code> en Supabase. 
-            <a href="crear_tabla_metricas.sql" target="_blank" style="color: #0066cc; text-decoration: underline;">Ver script SQL</a>
+            <span style="color: #0066cc;">Contactá al soporte para el script SQL</span>
           </div>
           
           <!-- Métricas Principales (2 cards grandes) -->
@@ -841,6 +841,16 @@
           </div>
           <div id="lista-pedidos-cancelados" class="chat-list" style="margin: 0 20px 20px 20px; border-radius: 8px; opacity: 0.7;">
             <!-- Cancelados van aquí -->
+          </div>
+          
+          <!-- Historial completo (oculto por defecto) -->
+          <div id="lista-pedidos-historial" style="display: none; margin-top: 20px;">
+            <div class="section-title" style="padding-left: 20px; text-align: left; color: var(--wa-text-secondary);">
+              Historial completo
+            </div>
+            <div id="lista-pedidos-historial-items" class="chat-list" style="margin: 0 20px 20px 20px; border-radius: 8px; opacity: 0.7;">
+              <!-- Historial se carga dinámicamente -->
+            </div>
           </div>
         </div>
       </div>
@@ -2523,7 +2533,7 @@
           // Si hay un pedido abierto, actualizarlo también
           if (pedidoActual && pedidoActual.id === payload.new?.id) {
             pedidoActual = payload.new;
-            renderChat(pedidoActual);
+            abrirChat(pedidoActual.id);
           }
         })
         .subscribe((status) => {

@@ -1,17 +1,17 @@
 const webPush = require('web-push');
 
-// Configurar VAPID
+// Configurar VAPID desde variables de entorno
 webPush.setVapidDetails(
   'mailto:admin@rotiseria.com',
-  'BGF8Q3Y-V9P-uhfoEqGA3D0jUCJpm_kXX0rNXDt8noPYTEIbQJ_M_h7j2GWy0FzWpzzTlGppCC4Qkwc1I4jfYfk',
-  'FW1lleyYR1iRd72YIbWRjGN8BytVEo6QH8bf1EpS1a8'
+  process.env.VAPID_PUBLIC_KEY || 'BGF8Q3Y-V9P-uhfoEqGA3D0jUCJpm_kXX0rNXDt8noPYTEIbQJ_M_h7j2GWy0FzWpzzTlGppCC4Qkwc1I4jfYfk',
+  process.env.VAPID_PRIVATE_KEY || 'FW1lleyYR1iRd72YIbWRjGN8BytVEo6QH8bf1EpS1a8'
 );
 
 module.exports = async (req, res) => {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   // Preflight
   if (req.method === 'OPTIONS') {
@@ -20,6 +20,15 @@ module.exports = async (req, res) => {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Autenticación: verificar API token si está configurado
+  const API_TOKEN = process.env.PUSH_API_TOKEN;
+  if (API_TOKEN) {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || authHeader !== `Bearer ${API_TOKEN}`) {
+      return res.status(401).json({ error: 'No autorizado' });
+    }
   }
 
   try {
