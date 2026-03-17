@@ -1,0 +1,16 @@
+{
+  "name": "rotiseria-panel",
+  "version": "1.0.0",
+  "description": "Panel de gestión de pedidos para rotisería con notificaciones push",
+  "main": "api/send-push.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "web-push": "^3.6.6"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
