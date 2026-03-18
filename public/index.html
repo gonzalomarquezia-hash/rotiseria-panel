@@ -9,7 +9,6 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -1248,11 +1247,6 @@
   </div>
 
   <script>
-    // Credenciales — se cargan dinámicamente desde la sesión
-    let SUPABASE_URL = null;
-    let SUPABASE_KEY = null;
-
-    let supabase = null;
     let negocio = null;
     let todosPedidos = [];
     let todosProductos = [];
@@ -1276,21 +1270,13 @@
       return getPedidosVistos().includes(pedidoId);
     }
 
-    // Esperar Supabase
-    function esperarSupabase(maxIntentos = 50) {
-      return new Promise((resolve, reject) => {
-        let intentos = 0;
-        const intervalo = setInterval(() => {
-          intentos++;
-          if (window.supabase) {
-            clearInterval(intervalo);
-            resolve();
-          } else if (intentos >= maxIntentos) {
-            clearInterval(intervalo);
-            reject(new Error('Timeout'));
-          }
-        }, 100);
-      });
+    // Helper auth headers
+    function authHeaders(extra = {}) {
+      const token = localStorage.getItem('panel_token');
+      return {
+        'Authorization': `Bearer ${token}`,
+        ...extra
+      };
     }
 
     // ── AUTH ────────────────────────────────────────────────────
@@ -1334,8 +1320,6 @@
         }
 
         localStorage.setItem('panel_token', data.token);
-        SUPABASE_URL = data.supabase_url;
-        SUPABASE_KEY = data.supabase_key;
         ocultarLogin();
         await iniciarPanel(data);
 
@@ -1364,26 +1348,23 @@
 
     async function iniciarPanel(sessionData) {
       try {
-        await esperarSupabase();
-        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
         actualizarEstado('#f59e0b');
 
-        const { data: negocios } = await supabase.from('negocios').select('*').limit(1);
-        if (negocios && negocios.length > 0) {
-          negocio = negocios[0];
-          document.getElementById('titulo-negocio').textContent = negocio.nombre;
+        const r = await fetch('/api/negocio', { headers: authHeaders() });
+        if (!r.ok) throw new Error('No se pudo cargar el negocio');
 
-          if (negocio.telefono) {
-            const telefonoFormateado = negocio.telefono.replace(/(\d{2})(\d{1})(\d{4})(\d{4})/, '+$1 $2 $3-$4');
-            document.getElementById('dashboard-whatsapp').textContent = telefonoFormateado;
-          }
+        negocio = await r.json();
+        document.getElementById('titulo-negocio').textContent = negocio.nombre;
 
-          actualizarEstado('#25D366');
-          cargarTodo();
-          restaurarSeccion();
-          restaurarSidebar();
+        if (negocio.telefono) {
+          const telefonoFormateado = negocio.telefono.replace(/(\d{2})(\d{1})(\d{4})(\d{4})/, '+$1 $2 $3-$4');
+          document.getElementById('dashboard-whatsapp').textContent = telefonoFormateado;
         }
+
+        actualizarEstado('#25D366');
+        cargarTodo();
+        restaurarSeccion();
+        restaurarSidebar();
       } catch (e) {
         console.error(e);
         actualizarEstado('#ef4444');
@@ -1411,8 +1392,6 @@
         }
 
         const data = await r.json();
-        SUPABASE_URL = data.supabase_url;
-        SUPABASE_KEY = data.supabase_key;
         ocultarLogin();
         await iniciarPanel(data);
 
@@ -1502,47 +1481,21 @@
     
     async function cargarTodo() {
       if (!negocio) return;
-      
+
       try {
-        // Cargar pedidos
-        const { data: pedidos } = await supabase.from('pedidos').select('*').eq('negocio_id', negocio.id);
-        todosPedidos = pedidos || [];
-        
-        // Cargar productos
-        const { data: productos } = await supabase.from('productos').select('*').eq('negocio_id', negocio.id);
-        todosProductos = productos || [];
-        
-        // Intentar cargar métricas (puede no existir la tabla aún)
-        try {
-          const hace30Dias = new Date();
-          hace30Dias.setDate(hace30Dias.getDate() - 30);
-          
-          const { data: metricas } = await supabase
-            .from('metricas_bot')
-            .select('*')
-            .eq('negocio_id', negocio.id)
-            .gte('fecha', hace30Dias.toISOString().split('T')[0])
-            .order('fecha', { ascending: false });
-          
-          metricasBot = metricas || [];
-          
-          // Ocultar nota si la tabla existe
-          const notaMetricas = document.getElementById('nota-metricas');
-          if (notaMetricas && metricas !== null) {
-            notaMetricas.style.display = 'none';
-          }
-        } catch (e) {
-          // La tabla no existe, mostrar nota y usar cálculo desde pedidos
-          metricasBot = [];
-          const notaMetricas = document.getElementById('nota-metricas');
-          if (notaMetricas) {
-            notaMetricas.style.display = 'block';
-          }
-        }
-        
+        // Cargar pedidos y productos en paralelo
+        const [rPedidos, rProductos] = await Promise.all([
+          fetch('/api/pedidos', { headers: authHeaders() }),
+          fetch('/api/productos', { headers: authHeaders() })
+        ]);
+
+        todosPedidos = rPedidos.ok ? await rPedidos.json() : [];
+        todosProductos = rProductos.ok ? await rProductos.json() : [];
+        metricasBot = [];
+
         renderListaPedidos();
         actualizarDashboard();
-        suscribirRealtime();
+        iniciarPolling();
       } catch (e) {
         console.error(e);
       }
@@ -2010,8 +1963,8 @@
       if (!confirmar) return;
       
       try {
-        const { error } = await supabase.from('pedidos').delete().eq('id', pedidoId);
-        if (error) throw error;
+        const r = await fetch('/api/pedidos/' + pedidoId, { method: 'DELETE', headers: authHeaders() });
+        if (!r.ok) throw new Error('Error al eliminar');
         
         // Cerrar detalle si está abierto
         if (pedidoActual && pedidoActual.id === pedidoId) {
@@ -2028,14 +1981,13 @@
     }
 
     async function cargarPedidos() {
-      if (!supabase || !negocio) return;
+      if (!negocio) return;
       const icon = document.getElementById('icon-refresh');
       icon.classList.add('fa-spin');
       try {
-        const { data } = await supabase.from('pedidos').select('*').eq('negocio_id', negocio.id);
-        todosPedidos = data || [];
+        const r = await fetch('/api/pedidos', { headers: authHeaders() });
+        todosPedidos = r.ok ? await r.json() : [];
         renderListaPedidos();
-        // Asegurar que el historial esté oculto al recargar
         if (historialVisible) toggleHistorial();
       } catch (e) {
         notificar('Error', 'No se pudieron cargar pedidos');
@@ -2098,7 +2050,11 @@
     async function toggleDisponible(id, estado, event) {
       event.stopPropagation();
       const nuevo = !estado;
-      await supabase.from('productos').update({ disponible: nuevo }).eq('id', id);
+      await fetch('/api/productos/' + id, {
+        method: 'PUT',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ disponible: nuevo })
+      });
       const p = todosProductos.find(prod => prod.id === id);
       if (p) p.disponible = nuevo;
       cargarMenu();
@@ -2149,14 +2105,22 @@
       
       const id = document.getElementById('prod-id').value;
       if (id) {
-        await supabase.from('productos').update(datos).eq('id', id);
+        await fetch('/api/productos/' + id, {
+          method: 'PUT',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify(datos)
+        });
       } else {
-        await supabase.from('productos').insert([datos]);
+        await fetch('/api/productos', {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify(datos)
+        });
       }
-      
+
       cerrarModalProducto();
-      const { data } = await supabase.from('productos').select('*').eq('negocio_id', negocio.id);
-      todosProductos = data || [];
+      const rp = await fetch('/api/productos', { headers: authHeaders() });
+      todosProductos = rp.ok ? await rp.json() : [];
       cargarMenu();
       notificar('Guardado', 'Producto actualizado');
     }
@@ -2164,10 +2128,10 @@
     async function eliminarProducto() {
       const id = document.getElementById('prod-id').value;
       if (!id || !confirm('¿Eliminar este producto?')) return;
-      await supabase.from('productos').delete().eq('id', id);
+      await fetch('/api/productos/' + id, { method: 'DELETE', headers: authHeaders() });
       cerrarModalProducto();
-      const { data } = await supabase.from('productos').select('*').eq('negocio_id', negocio.id);
-      todosProductos = data || [];
+      const rp = await fetch('/api/productos', { headers: authHeaders() });
+      todosProductos = rp.ok ? await rp.json() : [];
       cargarMenu();
       notificar('Eliminado', 'Producto removido');
     }
@@ -2201,7 +2165,15 @@
 
     async function eliminarCategoria(nombre) {
       if (!confirm(`¿Eliminar "${nombre}"?`)) return;
-      await supabase.from('productos').update({ categoria: 'Sin categoría' }).eq('categoria', nombre).eq('negocio_id', negocio.id);
+      // Actualizar cada producto de esta categoría
+      const afectados = todosProductos.filter(p => p.categoria === nombre);
+      await Promise.all(afectados.map(p =>
+        fetch('/api/productos/' + p.id, {
+          method: 'PUT',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ categoria: 'Sin categoría' })
+        })
+      ));
       todosProductos.forEach(p => { if (p.categoria === nombre) p.categoria = 'Sin categoría'; });
       renderCategoriasModal();
       cargarMenu();
@@ -2266,9 +2238,13 @@
           direccion: document.getElementById('config-direccion').value,
           costo_delivery: parsePeso(document.getElementById('config-delivery').value)
         };
-        const { error } = await supabase.from('negocios').update(datos).eq('id', negocio.id);
-        if (error) throw error;
-        
+        const r = await fetch('/api/negocio', {
+          method: 'PUT',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify(datos)
+        });
+        if (!r.ok) throw new Error('Error al guardar');
+
         Object.assign(negocio, datos);
         document.getElementById('titulo-negocio').textContent = datos.nombre;
         notificar('✅ Guardado', 'Configuración actualizada correctamente');
@@ -2287,12 +2263,13 @@
           Titular: document.getElementById('config-titular').value
         };
         
-        const { error } = await supabase.from('negocios').update({
-          datos_bancarios_json: datosBancarios
-        }).eq('id', negocio.id);
-        
-        if (error) throw error;
-        
+        const r = await fetch('/api/negocio', {
+          method: 'PUT',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ datos_bancarios_json: datosBancarios })
+        });
+        if (!r.ok) throw new Error('Error al guardar');
+
         negocio.datos_bancarios_json = datosBancarios;
         notificar('✅ Guardado', 'Datos bancarios actualizados');
       } catch (e) {
@@ -2330,12 +2307,13 @@
           }
         ];
         
-        const { error } = await supabase.from('negocios').update({
-          metodos_pago_json: metodosPago
-        }).eq('id', negocio.id);
-        
-        if (error) throw error;
-        
+        const r = await fetch('/api/negocio', {
+          method: 'PUT',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ metodos_pago_json: metodosPago })
+        });
+        if (!r.ok) throw new Error('Error al guardar');
+
         negocio.metodos_pago_json = metodosPago;
         notificar('✅ Guardado', 'Métodos de pago actualizados');
       } catch (e) {
@@ -2478,13 +2456,14 @@
         
         const nuevaLista = [...ignorarBot, nuevoItem];
         
-        // Guardar en Supabase
-        const { error } = await supabase.from('negocios').update({
-          ignorar_bot_json: nuevaLista
-        }).eq('id', negocio.id);
-        
-        if (error) throw error;
-        
+        // Guardar
+        const r = await fetch('/api/negocio', {
+          method: 'PUT',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ ignorar_bot_json: nuevaLista })
+        });
+        if (!r.ok) throw new Error('Error al guardar');
+
         // Actualizar local
         negocio.ignorar_bot_json = nuevaLista;
         
@@ -2515,13 +2494,14 @@
           item.row_number = i + 2;
         });
         
-        // Guardar en Supabase
-        const { error } = await supabase.from('negocios').update({
-          ignorar_bot_json: ignorarBot
-        }).eq('id', negocio.id);
-        
-        if (error) throw error;
-        
+        // Guardar
+        const r = await fetch('/api/negocio', {
+          method: 'PUT',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ ignorar_bot_json: ignorarBot })
+        });
+        if (!r.ok) throw new Error('Error al guardar');
+
         // Actualizar local
         negocio.ignorar_bot_json = ignorarBot;
         
@@ -2632,12 +2612,13 @@
       });
       
       try {
-        const { error } = await supabase.from('negocios').update({ 
-          horarios_json: horariosData 
-        }).eq('id', negocio.id);
-        
-        if (error) throw error;
-        
+        const r = await fetch('/api/negocio', {
+          method: 'PUT',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ horarios_json: horariosData })
+        });
+        if (!r.ok) throw new Error('Error al guardar');
+
         negocio.horarios_json = horariosData;
         notificar('✅ Guardado', 'Horarios actualizados correctamente');
       } catch (e) {
@@ -2645,83 +2626,59 @@
       }
     }
 
-    // Realtime - Suscripción a cambios en tiempo real
-    let canalRealtime = null;
-    
-    function suscribirRealtime() {
-      if (!negocio || !supabase) return;
-      
-      // Desuscribir canal anterior si existe
-      if (canalRealtime) {
-        supabase.removeChannel(canalRealtime);
+    // Polling — reemplaza Realtime (browser nunca toca Supabase directamente)
+    let pollingInterval = null;
+
+    function iniciarPolling() {
+      if (!negocio) return;
+
+      // Indicador visual: verde fijo (polling activo)
+      const realtimeDot = document.getElementById('realtime-dot');
+      if (realtimeDot) {
+        realtimeDot.style.background = '#25D366';
+        realtimeDot.title = 'Polling activo (10s)';
       }
-      
-      // Crear nuevo canal
-      canalRealtime = supabase
-        .channel('pedidos-' + negocio.id)
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'pedidos',
-          filter: 'negocio_id=eq.' + negocio.id
-        }, (payload) => {
-          console.log('[Realtime] Cambio detectado:', payload.eventType, payload);
-          
-          // Actualizar datos en memoria
-          if (payload.eventType === 'INSERT') {
-            // Agregar nuevo pedido al array
-            todosPedidos.unshift(payload.new);
-            notificarCambioPedido(payload.new, 'nuevo');
-          } else if (payload.eventType === 'UPDATE') {
-            // Actualizar pedido existente
-            const index = todosPedidos.findIndex(p => p.id === payload.new.id);
-            if (index !== -1) {
-              const pedidoAnterior = todosPedidos[index];
-              todosPedidos[index] = payload.new;
-              
-              // Notificar si cambió de estado importante
-              if (pedidoAnterior.estado !== payload.new.estado) {
-                notificarCambioPedido(payload.new, 'actualizado', pedidoAnterior.estado);
-              }
+
+      if (pollingInterval) clearInterval(pollingInterval);
+
+      pollingInterval = setInterval(async () => {
+        if (!negocio) return;
+        try {
+          const r = await fetch('/api/pedidos', { headers: authHeaders() });
+          if (!r.ok) return;
+          const nuevos = await r.json();
+
+          // Detectar inserts y notificar
+          const idsAnteriores = new Set(todosPedidos.map(p => p.id));
+          nuevos.forEach(p => {
+            if (!idsAnteriores.has(p.id)) {
+              notificarCambioPedido(p, 'nuevo');
             }
-          } else if (payload.eventType === 'DELETE') {
-            // Eliminar pedido del array
-            todosPedidos = todosPedidos.filter(p => p.id !== payload.old.id);
-          }
-          
-          // Actualizar UI inmediatamente
+          });
+
+          // Detectar updates de estado y notificar
+          nuevos.forEach(pNuevo => {
+            const pAnterior = todosPedidos.find(p => p.id === pNuevo.id);
+            if (pAnterior && pAnterior.estado !== pNuevo.estado) {
+              notificarCambioPedido(pNuevo, 'actualizado', pAnterior.estado);
+            }
+          });
+
+          todosPedidos = nuevos;
           renderListaPedidos();
           actualizarDashboard();
-          
-          // Si hay un pedido abierto, actualizarlo también
-          if (pedidoActual && pedidoActual.id === payload.new?.id) {
-            pedidoActual = payload.new;
-            abrirChat(pedidoActual.id);
-          }
-        })
-        .subscribe((status) => {
-          console.log('[Realtime] Estado de suscripción:', status);
-          
-          // Actualizar indicador visual
-          const realtimeDot = document.getElementById('realtime-dot');
-          if (realtimeDot) {
-            if (status === 'SUBSCRIBED') {
-              realtimeDot.style.background = '#25D366'; // Verde
-              realtimeDot.title = 'Tiempo real: Conectado';
-            } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-              realtimeDot.style.background = '#ef4444'; // Rojo
-              realtimeDot.title = 'Tiempo real: Desconectado - Click para reconectar';
-              // Intentar reconectar en 5 segundos
-              setTimeout(() => {
-                console.log('[Realtime] Intentando reconectar...');
-                suscribirRealtime();
-              }, 5000);
-            } else {
-              realtimeDot.style.background = '#f59e0b'; // Amarillo
-              realtimeDot.title = 'Tiempo real: Conectando...';
+
+          // Si hay un pedido abierto, actualizarlo
+          if (pedidoActual) {
+            const actualizado = nuevos.find(p => p.id === pedidoActual.id);
+            if (actualizado) {
+              pedidoActual = actualizado;
             }
           }
-        });
+        } catch (e) {
+          console.warn('[Polling] Error:', e);
+        }
+      }, 10000);
     }
     
     // Notificar cambios de pedido
