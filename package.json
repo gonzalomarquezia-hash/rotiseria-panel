@@ -6,7 +6,7 @@
     "build": "echo 'No build needed for static files'"
   },
   "dependencies": {
-    "web-push": "^3.6.6"
+    "bcryptjs": "^2.4.3"
   },
   "engines": {
     "node": "20.x"

@@ -604,6 +604,39 @@
       to { transform: translateX(0); opacity: 1; }
     }
     
+    /* Login screen */
+    #login-screen {
+      position: fixed; inset: 0; z-index: 10000;
+      background: linear-gradient(135deg, #128C7E 0%, #075E54 100%);
+      display: flex; align-items: center; justify-content: center;
+    }
+    #login-screen.hidden { display: none; }
+    .login-card {
+      background: white; border-radius: 16px; padding: 40px 36px;
+      width: 100%; max-width: 380px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.25);
+    }
+    .login-card h2 { margin: 0 0 6px; font-size: 22px; font-weight: 700; color: #111b21; }
+    .login-card p { margin: 0 0 28px; font-size: 14px; color: #667781; }
+    .login-field { margin-bottom: 18px; }
+    .login-field label { display: block; font-size: 13px; font-weight: 500; color: #111b21; margin-bottom: 6px; }
+    .login-field input {
+      width: 100%; padding: 11px 14px; border: 1.5px solid #e9edef;
+      border-radius: 8px; font-size: 15px; outline: none; transition: border-color 0.2s;
+    }
+    .login-field input:focus { border-color: #128C7E; }
+    .btn-login {
+      width: 100%; padding: 13px; background: #128C7E; color: white;
+      border: none; border-radius: 8px; font-size: 15px; font-weight: 600;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .btn-login:hover { background: #075E54; }
+    .btn-login:disabled { background: #9ca3af; cursor: not-allowed; }
+    #login-error {
+      margin-top: 14px; padding: 10px 14px; background: #fee2e2;
+      border-radius: 8px; color: #dc2626; font-size: 13px; display: none;
+    }
+
     /* Section visibility */
     .section { display: none; }
     .section.active { display: block; }
@@ -634,6 +667,30 @@
     <span style="color: var(--wa-text); font-weight: 500;">📱 Instalar app para notificaciones</span>
     <button onclick="instalarApp()" class="btn-primary">Instalar</button>
     <button onclick="this.parentElement.style.display='none'" style="background: none; border: none; color: var(--wa-text-secondary); cursor: pointer; font-size: 20px;">✕</button>
+  </div>
+
+  <!-- Login Screen -->
+  <div id="login-screen">
+    <div class="login-card">
+      <div style="text-align: center; margin-bottom: 28px;">
+        <div style="width: 56px; height: 56px; background: #128C7E; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+          <i class="fas fa-store" style="color: white; font-size: 24px;"></i>
+        </div>
+        <h2>Panel de Control</h2>
+        <p>Ingresá con tus credenciales de acceso</p>
+      </div>
+      <div class="login-field">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="tu@email.com" autocomplete="email">
+      </div>
+      <div class="login-field">
+        <label>Contraseña</label>
+        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
+               onkeydown="if(event.key==='Enter') hacerLogin()">
+      </div>
+      <button class="btn-login" id="btn-login" onclick="hacerLogin()">Ingresar</button>
+      <div id="login-error"></div>
+    </div>
   </div>
 
   <div class="app-container">
@@ -683,6 +740,12 @@
         <div style="display: flex; align-items: center; gap: 8px; width: 100%; justify-content: space-between;">
           <span class="sidebar-text" style="font-size: 13px; color: var(--wa-text-secondary);">Tiempo real</span>
           <span id="realtime-dot" style="width: 8px; height: 8px; background: #9ca3af; border-radius: 50%; flex-shrink: 0;"></span>
+        </div>
+        <div style="width: 100%; margin-top: 4px;">
+          <button onclick="cerrarSesion()" class="sidebar-text"
+            style="background: none; border: none; cursor: pointer; color: #ef4444; font-size: 13px; padding: 4px 0; display: flex; align-items: center; gap: 6px;">
+            <i class="fas fa-sign-out-alt"></i> Cerrar sesión
+          </button>
         </div>
       </div>
     </aside>
@@ -1185,10 +1248,10 @@
   </div>
 
   <script>
-    // Config
-    const SUPABASE_URL = 'https://ffwgnclaubyaqkegihix.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmd2duY2xhdWJ5YXFrZWdpaGl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxNDk0OTcsImV4cCI6MjA4NTcyNTQ5N30.C61u7nWE6K0oji0JKUAQCkLkGwmJ2Nrx9xb4z_C_6Mc';
-    
+    // Credenciales — se cargan dinámicamente desde la sesión
+    let SUPABASE_URL = null;
+    let SUPABASE_KEY = null;
+
     let supabase = null;
     let negocio = null;
     let todosPedidos = [];
@@ -1230,33 +1293,132 @@
       });
     }
 
-    // Inicializar
-    async function init() {
+    // ── AUTH ────────────────────────────────────────────────────
+
+    function mostrarLogin() {
+      document.getElementById('login-screen').classList.remove('hidden');
+    }
+
+    function ocultarLogin() {
+      document.getElementById('login-screen').classList.add('hidden');
+    }
+
+    async function hacerLogin() {
+      const email    = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value;
+      const errDiv   = document.getElementById('login-error');
+      const btn      = document.getElementById('btn-login');
+
+      errDiv.style.display = 'none';
+      if (!email || !password) {
+        errDiv.textContent = 'Completá email y contraseña.';
+        errDiv.style.display = 'block';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Ingresando...';
+
+      try {
+        const r = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await r.json();
+
+        if (!r.ok) {
+          errDiv.textContent = data.error || 'Error al ingresar.';
+          errDiv.style.display = 'block';
+          return;
+        }
+
+        localStorage.setItem('panel_token', data.token);
+        SUPABASE_URL = data.supabase_url;
+        SUPABASE_KEY = data.supabase_key;
+        ocultarLogin();
+        await iniciarPanel(data);
+
+      } catch (e) {
+        errDiv.textContent = 'Error de conexión. Intentá de nuevo.';
+        errDiv.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Ingresar';
+      }
+    }
+
+    async function cerrarSesion() {
+      const token = localStorage.getItem('panel_token');
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).catch(() => {});
+        localStorage.removeItem('panel_token');
+      }
+      location.reload();
+    }
+
+    // ── INICIALIZAR ─────────────────────────────────────────────
+
+    async function iniciarPanel(sessionData) {
       try {
         await esperarSupabase();
         supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        
+
         actualizarEstado('#f59e0b');
-        
+
         const { data: negocios } = await supabase.from('negocios').select('*').limit(1);
         if (negocios && negocios.length > 0) {
           negocio = negocios[0];
           document.getElementById('titulo-negocio').textContent = negocio.nombre;
-          
-          // Actualizar teléfono en dashboard
+
           if (negocio.telefono) {
             const telefonoFormateado = negocio.telefono.replace(/(\d{2})(\d{1})(\d{4})(\d{4})/, '+$1 $2 $3-$4');
             document.getElementById('dashboard-whatsapp').textContent = telefonoFormateado;
           }
-          
+
           actualizarEstado('#25D366');
           cargarTodo();
-          restaurarSeccion(); // Volver a la última sección usada
-          restaurarSidebar(); // Restaurar estado del menú
+          restaurarSeccion();
+          restaurarSidebar();
         }
       } catch (e) {
         console.error(e);
         actualizarEstado('#ef4444');
+      }
+    }
+
+    async function init() {
+      const token = localStorage.getItem('panel_token');
+
+      if (!token) {
+        mostrarLogin();
+        return;
+      }
+
+      // Validar sesión existente
+      try {
+        const r = await fetch('/api/auth/session', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!r.ok) {
+          localStorage.removeItem('panel_token');
+          mostrarLogin();
+          return;
+        }
+
+        const data = await r.json();
+        SUPABASE_URL = data.supabase_url;
+        SUPABASE_KEY = data.supabase_key;
+        ocultarLogin();
+        await iniciarPanel(data);
+
+      } catch (e) {
+        console.error(e);
+        mostrarLogin();
       }
     }
 
