@@ -2028,6 +2028,7 @@
     }
 
     async function cargarPedidos() {
+      if (!supabase || !negocio) return;
       const icon = document.getElementById('icon-refresh');
       icon.classList.add('fa-spin');
       try {
