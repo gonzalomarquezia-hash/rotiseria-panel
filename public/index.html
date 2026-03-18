@@ -2522,7 +2522,7 @@
     
     function renderHorarios() {
       // Obtener horarios actuales o crear estructura por defecto
-      horariosData = negocio.horarios_json || diasSemana.map(dia => ({
+      horariosData = (negocio.horarios_json && negocio.horarios_json.length > 0) ? negocio.horarios_json : diasSemana.map(dia => ({
         Dia: dia,
         Turnos: [{ Abierto: 'Si', Horario_Apertura: '11:00', Horario_Cierre: '23:00' }]
       }));
