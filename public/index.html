@@ -795,6 +795,26 @@
             </div>
           </div>
           
+          <!-- Métricas secundarias (2 cards pequeñas) -->
+          <div id="metricas-extra" style="display: none; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+            <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid var(--wa-border);">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                <span style="font-size: 13px; color: #667781; font-weight: 500;">Consultas fuera de horario</span>
+                <i class="fas fa-moon" style="color: #6366f1; font-size: 20px;"></i>
+              </div>
+              <div style="font-size: 32px; font-weight: 700; color: var(--wa-text); margin-bottom: 4px;" id="metrica-fuera-horario">-</div>
+              <div style="font-size: 12px; color: #667781;">respondidas automáticamente</div>
+            </div>
+            <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid var(--wa-border);">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                <span style="font-size: 13px; color: #667781; font-weight: 500;">Conversaciones únicas</span>
+                <i class="fas fa-user-friends" style="color: #10b981; font-size: 20px;"></i>
+              </div>
+              <div style="font-size: 32px; font-weight: 700; color: var(--wa-text); margin-bottom: 4px;" id="metrica-sesiones">-</div>
+              <div style="font-size: 12px; color: #667781;">últimos 30 días</div>
+            </div>
+          </div>
+
           <!-- Gráfico y Productos (2 columnas) -->
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 24px;">
             <!-- Gráfico de Pedidos -->
@@ -1484,14 +1504,15 @@
 
       try {
         // Cargar pedidos y productos en paralelo
-        const [rPedidos, rProductos] = await Promise.all([
+        const [rPedidos, rProductos, rMetricas] = await Promise.all([
           fetch('/api/pedidos', { headers: authHeaders() }),
-          fetch('/api/productos', { headers: authHeaders() })
+          fetch('/api/productos', { headers: authHeaders() }),
+          fetch('/api/metricas?dias=30', { headers: authHeaders() })
         ]);
 
         todosPedidos = rPedidos.ok ? await rPedidos.json() : [];
         todosProductos = rProductos.ok ? await rProductos.json() : [];
-        metricasBot = [];
+        metricasBot = rMetricas.ok ? await rMetricas.json() : null;
 
         renderListaPedidos();
         actualizarDashboard();
@@ -1506,33 +1527,25 @@
       // 1. MENSAJES RESPONDIDOS (últimos 30 días)
       let totalMensajes = 0;
       
-      // Si tenemos métricas de la tabla, usarlas
-      if (metricasBot && metricasBot.length > 0) {
-        totalMensajes = metricasBot.reduce((acc, m) => acc + (m.mensajes_enviados || 0), 0);
+      // Si tenemos métricas reales de la tabla, usarlas
+      if (metricasBot && metricasBot.mensajes > 0) {
+        totalMensajes = metricasBot.mensajes;
       } else if (todosPedidos && todosPedidos.length > 0) {
-        // Fallback: Calcular desde pedidos
+        // Fallback: estimar desde pedidos
         const hace30Dias = new Date();
         hace30Dias.setDate(hace30Dias.getDate() - 30);
-        hace30Dias.setHours(0, 0, 0, 0);
-        
         const pedidos30Dias = todosPedidos.filter(p => new Date(p.created_at) >= hace30Dias);
-        
         pedidos30Dias.forEach(p => {
           const hilo = p.hilo_conversacion || [];
           totalMensajes += hilo.filter(m => m.role === 'assistant').length;
         });
-        
-        // Si no hay mensajes en el hilo, estimamos
-        if (totalMensajes === 0) {
-          totalMensajes = pedidos30Dias.length * 3; // ~3 mensajes por pedido
-        }
+        if (totalMensajes === 0) totalMensajes = pedidos30Dias.length * 3;
       }
       
       document.getElementById('metrica-mensajes').textContent = totalMensajes.toLocaleString('es-AR');
       
       // 2. TIEMPO AHORRADO
-      // Estimación: 2 minutos por cada mensaje del bot
-      const minutosAhorrados = totalMensajes * 2;
+      const minutosAhorrados = (metricasBot && metricasBot.tiempo_ahorrado_min) ? metricasBot.tiempo_ahorrado_min : totalMensajes * 2;
       
       let tiempoTexto;
       let tiempoDetalle;
@@ -1555,7 +1568,14 @@
       
       document.getElementById('metrica-tiempo').textContent = tiempoTexto;
       document.getElementById('metrica-tiempo-detalle').textContent = tiempoDetalle;
-      
+
+      // Métricas extras (solo si hay datos reales)
+      if (metricasBot && metricasBot.mensajes > 0) {
+        document.getElementById('metricas-extra').style.display = 'grid';
+        document.getElementById('metrica-fuera-horario').textContent = (metricasBot.fuera_horario || 0).toLocaleString('es-AR');
+        document.getElementById('metrica-sesiones').textContent = (metricasBot.sesiones || 0).toLocaleString('es-AR');
+      }
+
       // Actualizar última actividad
       if (todosPedidos && todosPedidos.length > 0) {
         const ultimoPedido = [...todosPedidos].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
