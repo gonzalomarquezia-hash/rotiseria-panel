@@ -1789,7 +1789,8 @@
               </div>
             </div>
           </div>
-          <button onclick="event.stopPropagation(); eliminarPedido('${p.id}', '${nombre}')" style="background: none; border: none; color: #999; cursor: pointer; padding: 8px; margin-left: 8px; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.color='#dc3545'; this.style.background='#ffe1e1'" onmouseout="this.style.color='#999'; this.style.background='none'" title="Eliminar pedido">
+          ${(() => { const num = (p.session_id || '').replace(/\D/g,''); return num.length >= 10 ? `<a href="https://wa.me/${num}" target="_blank" onclick="event.stopPropagation()" style="display:flex; align-items:center; justify-content:center; background:#25D366; color:white; border:none; cursor:pointer; padding:8px; margin-left:4px; border-radius:6px; text-decoration:none; transition:all 0.2s;" onmouseover="this.style.background='#128C7E'" onmouseout="this.style.background='#25D366'" title="Ir al chat de WhatsApp"><i class="fab fa-whatsapp" style="font-size:18px;"></i></a>` : ''; })()}
+          <button onclick="event.stopPropagation(); eliminarPedido('${p.id}', '${nombre}')" style="background: none; border: none; color: #999; cursor: pointer; padding: 8px; margin-left: 4px; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.color='#dc3545'; this.style.background='#ffe1e1'" onmouseout="this.style.color='#999'; this.style.background='none'" title="Eliminar pedido">
             <i class="fas fa-trash-alt" style="font-size: 16px;"></i>
           </button>
         </div>
