@@ -1787,26 +1787,70 @@
         'entregado': '✓ Entregado'
       };
       
+      const esEnCurso = ESTADOS_EN_CURSO.includes(p.estado);
+      const esCancelado = ESTADOS_CANCELADOS.includes(p.estado);
+      const num = (p.session_id || '').replace(/\D/g,'');
+      const whatsappBtn = num.length >= 10 ? `<a href="https://wa.me/${num}" target="_blank" onclick="event.stopPropagation()" style="display:flex;align-items:center;justify-content:center;background:#25D366;color:white;border:none;cursor:pointer;padding:8px;margin-left:4px;border-radius:6px;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='#128C7E'" onmouseout="this.style.background='#25D366'" title="Ir al chat de WhatsApp"><i class="fab fa-whatsapp" style="font-size:18px;"></i></a>` : '';
+      const deleteBtn = `<button onclick="event.stopPropagation(); eliminarPedido('${p.id}', '${nombre}')" style="background:none;border:none;color:#999;cursor:pointer;padding:8px;margin-left:4px;border-radius:6px;transition:all 0.2s;" onmouseover="this.style.color='#dc3545';this.style.background='#ffe1e1'" onmouseout="this.style.color='#999';this.style.background='none'" title="Eliminar pedido"><i class="fas fa-trash-alt" style="font-size:16px;"></i></button>`;
+
+      if (esEnCurso) {
+        return `
+          <div class="chat-item" onclick="abrirChat('${p.id}')" style="border-left: 3px solid #f59e0b;">
+            <div class="chat-avatar" style="background: #f59e0b; position:relative;">
+              ${inicial}
+              <span style="position:absolute;bottom:0;right:0;width:10px;height:10px;background:#22c55e;border-radius:50%;border:2px solid white;"></span>
+            </div>
+            <div class="chat-content">
+              <div class="chat-header-row">
+                <span class="chat-name">${nombre}</span>
+                <span class="chat-time">${formatDate(p.created_at)}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span class="chat-message" style="color:#f59e0b;font-style:italic;">🤖 ${estadoTexto[p.estado] || 'Bot conversando...'}</span>
+                ${!visto ? '<span class="unread-badge">1</span>' : ''}
+              </div>
+            </div>
+            ${whatsappBtn}${deleteBtn}
+          </div>
+        `;
+      }
+
+      if (esCancelado || esHistorial) {
+        return `
+          <div class="chat-item" style="opacity:0.55;" onclick="abrirChat('${p.id}')">
+            <div class="chat-avatar" style="background:#9ca3af;">${inicial}</div>
+            <div class="chat-content">
+              <div class="chat-header-row">
+                <span class="chat-name" style="color:#667781;">${nombre}</span>
+                <span class="chat-time">${formatDate(p.created_at)}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span class="chat-message">❌ Cancelado${preview ? ' · ' + preview : ''}</span>
+                <span style="color:#9ca3af;font-size:13px;">${p.subtotal ? formatMoney(p.subtotal) : ''}</span>
+              </div>
+            </div>
+            ${deleteBtn}
+          </div>
+        `;
+      }
+
       return `
-        <div class="chat-item ${!visto && !esHistorial ? 'unread' : ''}" ${esHistorial ? 'style="opacity: 0.6;"' : ''}>
-          <div class="chat-avatar" onclick="abrirChat('${p.id}')" ${esHistorial ? 'style="background: #667781;"' : ''}>${inicial}</div>
-          <div class="chat-content" onclick="abrirChat('${p.id}')">
+        <div class="chat-item ${!visto ? 'unread' : ''}" onclick="abrirChat('${p.id}')">
+          <div class="chat-avatar">${inicial}</div>
+          <div class="chat-content">
             <div class="chat-header-row">
               <span class="chat-name">${nombre}</span>
               <span class="chat-time">${formatDate(p.created_at)}</span>
             </div>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span class="chat-message">${esHistorial ? estadoTexto[p.estado] : preview}</span>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="color: var(--wa-header); font-weight: 600; font-size: 14px;">${formatMoney(p.subtotal)}</span>
-                ${!visto && !esHistorial ? '<span class="unread-badge">1</span>' : '<span class="double-check" style="' + (esHistorial ? 'color: var(--wa-text-secondary);' : '') + '"><i class="fas fa-check-double"></i></span>'}
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span class="chat-message">${preview}</span>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="color:var(--wa-header);font-weight:600;font-size:14px;">${formatMoney(p.subtotal)}</span>
+                ${!visto ? '<span class="unread-badge">1</span>' : '<span class="double-check"><i class="fas fa-check-double"></i></span>'}
               </div>
             </div>
           </div>
-          ${(() => { const num = (p.session_id || '').replace(/\D/g,''); return num.length >= 10 ? `<a href="https://wa.me/${num}" target="_blank" onclick="event.stopPropagation()" style="display:flex; align-items:center; justify-content:center; background:#25D366; color:white; border:none; cursor:pointer; padding:8px; margin-left:4px; border-radius:6px; text-decoration:none; transition:all 0.2s;" onmouseover="this.style.background='#128C7E'" onmouseout="this.style.background='#25D366'" title="Ir al chat de WhatsApp"><i class="fab fa-whatsapp" style="font-size:18px;"></i></a>` : ''; })()}
-          <button onclick="event.stopPropagation(); eliminarPedido('${p.id}', '${nombre}')" style="background: none; border: none; color: #999; cursor: pointer; padding: 8px; margin-left: 4px; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.color='#dc3545'; this.style.background='#ffe1e1'" onmouseout="this.style.color='#999'; this.style.background='none'" title="Eliminar pedido">
-            <i class="fas fa-trash-alt" style="font-size: 16px;"></i>
-          </button>
+          ${whatsappBtn}${deleteBtn}
         </div>
       `;
     }
@@ -1870,6 +1914,70 @@
       const telefono = cliente.telefono || '';
       const linkWhatsApp = telefono ? `https://wa.me/${telefono}` : '#';
       
+      const esEnCursoDetalle = ESTADOS_EN_CURSO.includes(pedido.estado);
+      const esCanceladoDetalle = ESTADOS_CANCELADOS.includes(pedido.estado);
+
+      if (esEnCursoDetalle) {
+        document.getElementById('pedido-content').innerHTML = `
+          <div class="pedido-card-detalle" style="border: 2px solid #f59e0b; background: #fffbeb;">
+            <h3 style="color:#92400e;">🤖 Conversación activa</h3>
+            <div style="background:#f59e0b;color:white;padding:14px;border-radius:10px;margin-bottom:20px;text-align:center;">
+              <div style="font-size:12px;opacity:0.9;margin-bottom:4px;">Estado actual</div>
+              <div style="font-size:16px;font-weight:700;">${estadoTexto[pedido.estado] || 'Bot conversando...'}</div>
+            </div>
+            <div class="pedido-info-grid" style="margin-bottom:20px;">
+              <div class="pedido-info-item" style="grid-column:1/-1;">
+                <span class="pedido-info-label">Cliente</span>
+                <span class="pedido-info-value" style="font-size:16px;">${nombre}</span>
+              </div>
+              ${telefono ? `<div class="pedido-info-item" style="grid-column:1/-1;">
+                <span class="pedido-info-label">Teléfono</span>
+                <span class="pedido-info-value" style="font-family:monospace;">${telefono}</span>
+              </div>` : ''}
+              <div class="pedido-info-item" style="grid-column:1/-1;">
+                <span class="pedido-info-label">Iniciado</span>
+                <span class="pedido-info-value">${new Date(pedido.created_at).toLocaleString('es-AR')}</span>
+              </div>
+            </div>
+            <div style="background:#fef3c7;border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;color:#92400e;">
+              ℹ️ El bot está gestionando esta conversación. El pedido aparecerá en <strong>Confirmados</strong> cuando se complete.
+            </div>
+            ${telefono ? `<a href="${linkWhatsApp}" target="_blank" style="display:block;background:#25D366;color:white;text-align:center;padding:14px;border-radius:10px;text-decoration:none;font-weight:600;margin-bottom:12px;" onmouseover="this.style.background='#128C7E'" onmouseout="this.style.background='#25D366'">
+              <i class="fab fa-whatsapp" style="margin-right:8px;"></i>Ver chat de WhatsApp
+            </a>` : ''}
+            <button onclick="cerrarChat()" style="width:100%;background:white;border:1px solid #f59e0b;color:#92400e;padding:12px;border-radius:10px;cursor:pointer;font-weight:600;">Cerrar</button>
+          </div>
+        `;
+        document.getElementById('pedido-detail').classList.add('active');
+        return;
+      }
+
+      if (esCanceladoDetalle) {
+        document.getElementById('pedido-content').innerHTML = `
+          <div class="pedido-card-detalle" style="border:1px solid #e5e7eb;background:#f9fafb;opacity:0.9;">
+            <h3 style="color:#6b7280;">❌ Pedido Cancelado</h3>
+            <div class="pedido-info-grid" style="margin-bottom:20px;">
+              <div class="pedido-info-item" style="grid-column:1/-1;">
+                <span class="pedido-info-label">Cliente</span>
+                <span class="pedido-info-value">${nombre}</span>
+              </div>
+              ${telefono ? `<div class="pedido-info-item" style="grid-column:1/-1;">
+                <span class="pedido-info-label">Teléfono</span>
+                <span class="pedido-info-value" style="font-family:monospace;">${telefono}</span>
+              </div>` : ''}
+              <div class="pedido-info-item" style="grid-column:1/-1;">
+                <span class="pedido-info-label">Fecha</span>
+                <span class="pedido-info-value">${new Date(pedido.created_at).toLocaleString('es-AR')}</span>
+              </div>
+            </div>
+            ${items ? `<div style="margin-bottom:16px;">${items}<div class="pedido-total" style="color:#9ca3af;"><span>Total estimado</span><span>${formatMoney(pedido.subtotal)}</span></div></div>` : ''}
+            <button onclick="cerrarChat()" style="width:100%;background:white;border:1px solid #e5e7eb;color:#6b7280;padding:12px;border-radius:10px;cursor:pointer;font-weight:600;">Cerrar</button>
+          </div>
+        `;
+        document.getElementById('pedido-detail').classList.add('active');
+        return;
+      }
+
       if (esRequiereAtencion) {
         // Vista especial para casos que requieren atención
         document.getElementById('pedido-content').innerHTML = `
