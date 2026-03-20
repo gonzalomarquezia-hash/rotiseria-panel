@@ -1755,7 +1755,7 @@
     
     function renderPedidoItem(p, esHistorial = false) {
       const cliente = p.datos_cliente_json || {};
-      const nombre = cliente.nombre || 'Cliente';
+      const nombre = cliente.nombre || p.session_id || 'Cliente';
       const inicial = nombre.charAt(0).toUpperCase();
       const visto = esPedidoVisto(p.id);
       const items = (p.carrito_json || []).slice(0, 2).map(i => i.nombre || i.producto || 'Item').join(', ');
@@ -1882,8 +1882,8 @@
       renderListaPedidos();
       
       const cliente = pedido.datos_cliente_json || {};
-      const nombre = cliente.nombre || 'Cliente';
-      
+      const nombre = cliente.nombre || pedido.session_id || 'Cliente';
+
       document.getElementById('pedido-cliente-nombre').textContent = nombre;
       document.getElementById('pedido-cliente-info').textContent = cliente.telefono || `Pedido · ${formatMoney(pedido.subtotal)}`;
       
@@ -2837,7 +2837,7 @@
     
     function notificarNuevoPedido(pedido) {
       const cliente = pedido.datos_cliente_json || {};
-      const nombre = cliente.nombre || 'Cliente';
+      const nombre = cliente.nombre || pedido.session_id || 'Cliente';
       const total = formatMoney(pedido.subtotal);
       const items = (pedido.carrito_json || []).length;
       
@@ -2853,7 +2853,7 @@
     
     function notificarRequiereAtencion(pedido) {
       const cliente = pedido.datos_cliente_json || {};
-      const nombre = cliente.nombre || 'Cliente';
+      const nombre = cliente.nombre || pedido.session_id || 'Cliente';
       const telefono = cliente.telefono || '';
       
       // Notificación con sonido más urgente
