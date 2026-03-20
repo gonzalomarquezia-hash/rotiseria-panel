@@ -2750,8 +2750,7 @@
     // ============================================
     
     // Clave VAPID pública (para el navegador)
-    const VAPID_PUBLIC_KEY = 'BGF8Q3Y-V9P-uhfoEqGA3D0jUCJpm_kXX0rNXDt8noPYTEIbQJ_M_h7j2GWy0FzWpzzTlGppCC4Qkwc1I4jfYfk';
-    
+    let VAPID_PUBLIC_KEY = '';
     let deferredPrompt;
     let pushSubscription = null;
     
@@ -2801,30 +2800,27 @@
       }
     }
     
-    // Guardar suscripción en Supabase
+    // Guardar suscripción via API servidor
     async function guardarSuscripcionPush(subscription) {
-      if (!negocio || !supabase) return;
-      
+      const token = localStorage.getItem('panel_token');
+      if (!token) return;
+
       try {
-        const subscriptionData = {
-          negocio_id: negocio.id,
-          endpoint: subscription.endpoint,
-          p256dh: subscription.toJSON().keys.p256dh,
-          auth: subscription.toJSON().keys.auth,
-          user_agent: navigator.userAgent,
-          ultimo_acceso: new Date().toISOString()
-        };
-        
-        // Upsert: insertar o actualizar si ya existe
-        const { error } = await supabase
-          .from('suscripciones_push')
-          .upsert(subscriptionData, { 
-            onConflict: 'endpoint',
-            ignoreDuplicates: false 
-          });
-        
-        if (error) throw error;
-        console.log('[Push] Suscripción guardada en Supabase');
+        const keys = subscription.toJSON().keys;
+        const res = await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            endpoint: subscription.endpoint,
+            p256dh: keys.p256dh,
+            auth: keys.auth
+          })
+        });
+        if (res.ok) console.log('[Push] Suscripción guardada');
+        else console.error('[Push] Error al guardar suscripción:', await res.text());
       } catch (error) {
         console.error('[Push] Error al guardar suscripción:', error);
       }
@@ -2884,7 +2880,13 @@
       }
     }
     
-    registrarServiceWorker();
+    // Cargar VAPID public key del servidor antes de registrar SW
+    fetch('/api/push/vapid-public-key')
+      .then(r => r.json())
+      .then(d => { if (d.publicKey) VAPID_PUBLIC_KEY = d.publicKey; })
+      .catch(() => {})
+      .finally(() => registrarServiceWorker());
+
     
     // Evento para instalar app
     window.addEventListener('beforeinstallprompt', (e) => {

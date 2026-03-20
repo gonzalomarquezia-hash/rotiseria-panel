@@ -6,7 +6,9 @@
     "build": "echo 'No build needed for static files'"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3"
+    "@supabase/supabase-js": "^2.99.3",
+    "bcryptjs": "^2.4.3",
+    "web-push": "^3.6.7"
   },
   "engines": {
     "node": "20.x"

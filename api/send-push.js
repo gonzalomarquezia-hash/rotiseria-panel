@@ -1,28 +1,24 @@
 const webPush = require('web-push');
+const { createClient } = require('@supabase/supabase-js');
 
-// Configurar VAPID desde variables de entorno
+if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+  throw new Error('Faltan VAPID_PUBLIC_KEY o VAPID_PRIVATE_KEY en las variables de entorno');
+}
+
 webPush.setVapidDetails(
   'mailto:admin@rotiseria.com',
-  process.env.VAPID_PUBLIC_KEY || 'BGF8Q3Y-V9P-uhfoEqGA3D0jUCJpm_kXX0rNXDt8noPYTEIbQJ_M_h7j2GWy0FzWpzzTlGppCC4Qkwc1I4jfYfk',
-  process.env.VAPID_PRIVATE_KEY || 'FW1lleyYR1iRd72YIbWRjGN8BytVEo6QH8bf1EpS1a8'
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
 );
 
 module.exports = async (req, res) => {
-  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).end();
 
-  // Preflight
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  // Autenticación: verificar API token si está configurado
+  // Auth para n8n
   const API_TOKEN = process.env.PUSH_API_TOKEN;
   if (API_TOKEN) {
     const authHeader = req.headers['authorization'];
@@ -31,45 +27,39 @@ module.exports = async (req, res) => {
     }
   }
 
-  try {
-    const { subscription, payload } = req.body;
-
-    // Validaciones
-    if (!subscription || !subscription.endpoint) {
-      return res.status(400).json({ error: 'Falta subscription.endpoint' });
-    }
-
-    if (!subscription.keys || !subscription.keys.p256dh || !subscription.keys.auth) {
-      return res.status(400).json({ error: 'Faltan keys.p256dh o keys.auth' });
-    }
-
-    if (!payload || !payload.title) {
-      return res.status(400).json({ error: 'Falta payload.title' });
-    }
-
-    // Enviar notificación
-    const pushPayload = JSON.stringify({
-      title: payload.title,
-      body: payload.body || '',
-      icon: payload.icon || 'https://cdn-icons-png.flaticon.com/512/3595/3595455.png',
-      badge: payload.badge || 'https://cdn-icons-png.flaticon.com/512/3595/3595455.png',
-      tag: payload.tag || 'default',
-      requireInteraction: payload.requireInteraction || false,
-      data: payload.data || {}
-    });
-
-    await webPush.sendNotification(subscription, pushPayload);
-
-    return res.status(200).json({ 
-      success: true, 
-      message: 'Notificación enviada' 
-    });
-
-  } catch (error) {
-    console.error('Error enviando push:', error);
-    return res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
+  const { negocio_id, title, body } = req.body;
+  if (!negocio_id || !title) {
+    return res.status(400).json({ error: 'Faltan negocio_id o title' });
   }
+
+  const supabase = createClient(process.env.MAESTRO_URL, process.env.MAESTRO_SERVICE_KEY);
+
+  const { data: subs, error } = await supabase
+    .from('suscripciones_push')
+    .select('endpoint, p256dh, auth')
+    .eq('negocio_id', negocio_id);
+
+  if (error) return res.status(500).json({ error: error.message });
+  if (!subs || subs.length === 0) return res.status(200).json({ ok: true, enviados: 0 });
+
+  const payload = JSON.stringify({
+    title,
+    body: body || '',
+    icon: 'https://cdn-icons-png.flaticon.com/512/3595/3595455.png',
+    badge: 'https://cdn-icons-png.flaticon.com/512/3595/3595455.png',
+    requireInteraction: true,
+    tag: 'nuevo-pedido'
+  });
+
+  const results = await Promise.allSettled(
+    subs.map(sub =>
+      webPush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        payload
+      )
+    )
+  );
+
+  const enviados = results.filter(r => r.status === 'fulfilled').length;
+  return res.status(200).json({ ok: true, enviados, total: subs.length });
 };
