@@ -1,5 +1,5 @@
-// Service Worker para Panel de Rotisería
-const CACHE_NAME = 'rotiseria-panel-v1';
+// Service Worker para Panel de Rotisería — v2
+const CACHE_NAME = 'rotiseria-panel-v2';
 
 // Instalación
 self.addEventListener('install', (event) => {
