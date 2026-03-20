@@ -1321,6 +1321,7 @@
         if (data.vapid_public_key) VAPID_PUBLIC_KEY = data.vapid_public_key;
         ocultarLogin();
         await iniciarPanel(data);
+        registrarServiceWorker();
 
       } catch (e) {
         errDiv.textContent = 'Error de conexión. Intentá de nuevo.';
@@ -1394,6 +1395,7 @@
         if (data.vapid_public_key) VAPID_PUBLIC_KEY = data.vapid_public_key;
         ocultarLogin();
         await iniciarPanel(data);
+        registrarServiceWorker();
 
       } catch (e) {
         console.error(e);
@@ -1623,7 +1625,8 @@
         `;
       }).join('');
       
-      document.getElementById('grafico-pedidos').innerHTML = html;
+      const grafico = document.getElementById('grafico-pedidos');
+      if (grafico) grafico.innerHTML = html;
     }
     
     // Renderizar productos más vendidos
@@ -1644,7 +1647,7 @@
         .slice(0, 5);
       
       if (topProductos.length === 0) {
-        document.getElementById('top-productos').innerHTML = '<div style="padding: 12px; text-align: center; color: #667781; font-size: 13px;">Sin ventas hoy</div>';
+        const tp = document.getElementById('top-productos'); if (tp) tp.innerHTML = '<div style="padding: 12px; text-align: center; color: #667781; font-size: 13px;">Sin ventas hoy</div>';
         return;
       }
       
@@ -1658,7 +1661,7 @@
         </div>
       `).join('');
       
-      document.getElementById('top-productos').innerHTML = html;
+      const topEl = document.getElementById('top-productos'); if (topEl) topEl.innerHTML = html;
     }
 
     // Agrupar estados del flujo n8n
@@ -2881,9 +2884,6 @@
         console.error('[Push] Error:', error);
       }
     }
-    
-    registrarServiceWorker();
-
     
     // Evento para instalar app
     window.addEventListener('beforeinstallprompt', (e) => {
