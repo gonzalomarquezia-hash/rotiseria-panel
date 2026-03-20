@@ -43,6 +43,7 @@ module.exports = async (req, res) => {
     supabase_url: cliente.supabase_url,
     supabase_key: cliente.supabase_anon_key,
     canal_ntfy: cliente.canal_ntfy,
-    plan: cliente.plan
+    plan: cliente.plan,
+    vapid_public_key: process.env.VAPID_PUBLIC_KEY || null
   });
 };

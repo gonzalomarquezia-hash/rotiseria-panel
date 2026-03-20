@@ -1318,6 +1318,7 @@
         }
 
         localStorage.setItem('panel_token', data.token);
+        if (data.vapid_public_key) VAPID_PUBLIC_KEY = data.vapid_public_key;
         ocultarLogin();
         await iniciarPanel(data);
 
@@ -1390,6 +1391,7 @@
         }
 
         const data = await r.json();
+        if (data.vapid_public_key) VAPID_PUBLIC_KEY = data.vapid_public_key;
         ocultarLogin();
         await iniciarPanel(data);
 
@@ -2880,12 +2882,7 @@
       }
     }
     
-    // Cargar VAPID public key del servidor antes de registrar SW
-    fetch('/api/push/vapid-public-key')
-      .then(r => r.json())
-      .then(d => { if (d.publicKey) VAPID_PUBLIC_KEY = d.publicKey; })
-      .catch(() => {})
-      .finally(() => registrarServiceWorker());
+    registrarServiceWorker();
 
     
     // Evento para instalar app
