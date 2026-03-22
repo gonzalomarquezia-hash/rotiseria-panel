@@ -868,7 +868,7 @@
           <!-- ⚠️ REQUIEREN ATENCIÓN (PRIORIDAD MÁXIMA - Arriba de todo) -->
           <div id="seccion-atencion" style="display: none;">
             <div class="section-title" style="padding-left: 20px; text-align: left; color: #dc3545;">
-              🆘 Requiere intervención
+              Requiere intervención
               <span id="count-atencion" style="background: #dc3545; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; margin-left: 8px;">0</span>
             </div>
             <div id="lista-pedidos-atencion" class="chat-list" style="margin: 0 20px 10px 20px; border-radius: 8px; border: 2px solid #ffe1e1; background: #fff5f5;">
@@ -1797,7 +1797,13 @@
       const deleteBtn = `<button onclick="event.stopPropagation(); eliminarPedido('${p.id}', '${nombre}')" style="background:none;border:none;color:#999;cursor:pointer;padding:8px;margin-left:4px;border-radius:6px;transition:all 0.2s;" onmouseover="this.style.color='#dc3545';this.style.background='#ffe1e1'" onmouseout="this.style.color='#999';this.style.background='none'" title="Eliminar pedido"><i class="fas fa-trash-alt" style="font-size:16px;"></i></button>`;
 
       if (esQueja) {
-        const ultimoMensaje = (p.hilo_conversacion || []).filter(m => m.role === 'user').slice(-1)[0]?.content || 'Sin mensaje';
+        let mensajeCard;
+        if (p.estado === 'necesita_intervencion') {
+          mensajeCard = 'Solicitó atención humana';
+        } else {
+          const ultimoMensaje = (p.hilo_conversacion || []).filter(m => m.role === 'user').slice(-1)[0]?.content || 'Sin mensaje';
+          mensajeCard = `"${ultimoMensaje.substring(0, 50)}${ultimoMensaje.length > 50 ? '...' : ''}"`;
+        }
         return `
           <div class="chat-item" onclick="abrirChat('${p.id}')" style="border-left: 3px solid #dc3545; background: #fff5f5;">
             <div class="chat-avatar" style="background: #dc3545; position:relative;">
@@ -1809,7 +1815,7 @@
                 <span class="chat-time">${formatDate(p.created_at)}</span>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;">
-                <span class="chat-message" style="color:#dc3545;font-style:italic;">⚠️ "${ultimoMensaje.substring(0, 50)}${ultimoMensaje.length > 50 ? '...' : ''}"</span>
+                <span class="chat-message" style="color:#dc3545;font-style:italic;">${mensajeCard}</span>
                 ${!visto ? '<span class="unread-badge" style="background:#dc3545;">1</span>' : ''}
               </div>
             </div>
