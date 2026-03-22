@@ -1,5 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
-const { validarSesion } = require('../_lib/session');
+const { getSession } = require('../_lib/session');
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -8,8 +8,12 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).end();
 
-  const sesion = await validarSesion(req);
-  if (!sesion) return res.status(401).json({ error: 'No autorizado' });
+  let sesion;
+  try {
+    sesion = await getSession(req);
+  } catch (e) {
+    return res.status(e.status || 401).json({ error: e.error || 'No autorizado' });
+  }
 
   const { endpoint, p256dh, auth } = req.body;
   if (!endpoint || !p256dh || !auth) {
