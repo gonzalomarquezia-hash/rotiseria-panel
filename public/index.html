@@ -2797,7 +2797,16 @@
         if (!negocio) return;
         try {
           const r = await fetch('/api/pedidos', { headers: authHeaders() });
-          if (!r.ok) return;
+          if (!r.ok) {
+            if (r.status === 401) {
+              const body = await r.json().catch(() => ({}));
+              console.error('[Polling] 401 error:', body);
+              localStorage.removeItem('panel_token');
+              mostrarLogin();
+              clearInterval(pollingInterval);
+            }
+            return;
+          }
           const nuevos = await r.json();
 
           // Detectar inserts y notificar
