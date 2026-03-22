@@ -2848,10 +2848,11 @@
         const eraEnCurso = ESTADOS_EN_CURSO.includes(estadoAnterior);
         const ahoraConfirmado = esConfirmado(pedido.estado);
         const ahoraRequiereAtencion = requiereAtencion(pedido.estado);
-        
+        const yaRequeria = requiereAtencion(estadoAnterior);
+
         if (eraEnCurso && ahoraConfirmado) {
           notificarNuevoPedido(pedido);
-        } else if (eraEnCurso && ahoraRequiereAtencion) {
+        } else if (ahoraRequiereAtencion && !yaRequeria) {
           notificarRequiereAtencion(pedido);
         }
       }
