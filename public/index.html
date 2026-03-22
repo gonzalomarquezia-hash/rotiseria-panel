@@ -1942,7 +1942,7 @@
       
       // Detectar si requiere atención especial
       const esRequiereAtencion = ESTADOS_REQUIEREN_ATENCION.includes(pedido.estado);
-      const telefono = cliente.telefono || '';
+      const telefono = cliente.telefono || (pedido.session_id || '').replace(/\D/g, '') || '';
       const linkWhatsApp = telefono ? `https://wa.me/${telefono}` : '#';
       
       const esEnCursoDetalle = ESTADOS_EN_CURSO.includes(pedido.estado);
