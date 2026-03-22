@@ -1674,7 +1674,7 @@
     }
 
     // Agrupar estados del flujo n8n
-    const ESTADOS_REQUIEREN_ATENCION = ['requiere_intervencion', 'requiere_atencion'];
+    const ESTADOS_REQUIEREN_ATENCION = ['requiere_intervencion', 'requiere_atencion', 'queja'];
     const ESTADOS_EN_CURSO = ['armando_pedido', 'armando_carrito', 'definir_entrega', 'datos_delivery', 'datos_retiro', 'elegir_pago', 'revisar_pedido'];
     const ESTADOS_CONFIRMADOS = ['pedido_confirmado', 'confirmado'];
     const ESTADOS_CANCELADOS = ['pedido_cancelado', 'cancelado'];
@@ -1766,6 +1766,7 @@
         // Requieren atención (PRIORIDAD)
         'requiere_intervencion': '🚨 Requiere atención',
         'requiere_atencion': '🚨 Requiere atención',
+        'queja': '⚠️ Queja de cliente',
         // Confirmados
         'pedido_confirmado': '✅ Confirmado',
         'confirmado': '✅ Confirmado',
@@ -1789,9 +1790,32 @@
       
       const esEnCurso = ESTADOS_EN_CURSO.includes(p.estado);
       const esCancelado = ESTADOS_CANCELADOS.includes(p.estado);
+      const esQueja = p.estado === 'queja';
       const num = (p.session_id || '').replace(/\D/g,'');
       const whatsappBtn = num.length >= 10 ? `<a href="https://wa.me/${num}" target="_blank" onclick="event.stopPropagation()" style="display:flex;align-items:center;justify-content:center;background:#25D366;color:white;border:none;cursor:pointer;padding:8px;margin-left:4px;border-radius:6px;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='#128C7E'" onmouseout="this.style.background='#25D366'" title="Ir al chat de WhatsApp"><i class="fab fa-whatsapp" style="font-size:18px;"></i></a>` : '';
       const deleteBtn = `<button onclick="event.stopPropagation(); eliminarPedido('${p.id}', '${nombre}')" style="background:none;border:none;color:#999;cursor:pointer;padding:8px;margin-left:4px;border-radius:6px;transition:all 0.2s;" onmouseover="this.style.color='#dc3545';this.style.background='#ffe1e1'" onmouseout="this.style.color='#999';this.style.background='none'" title="Eliminar pedido"><i class="fas fa-trash-alt" style="font-size:16px;"></i></button>`;
+
+      if (esQueja) {
+        const ultimoMensaje = (p.hilo_conversacion || []).filter(m => m.role === 'user').slice(-1)[0]?.content || 'Sin mensaje';
+        return `
+          <div class="chat-item" onclick="abrirChat('${p.id}')" style="border-left: 3px solid #dc3545; background: #fff5f5;">
+            <div class="chat-avatar" style="background: #dc3545; position:relative;">
+              ${inicial}
+            </div>
+            <div class="chat-content">
+              <div class="chat-header-row">
+                <span class="chat-name">${nombre}</span>
+                <span class="chat-time">${formatDate(p.created_at)}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span class="chat-message" style="color:#dc3545;font-style:italic;">⚠️ "${ultimoMensaje.substring(0, 50)}${ultimoMensaje.length > 50 ? '...' : ''}"</span>
+                ${!visto ? '<span class="unread-badge" style="background:#dc3545;">1</span>' : ''}
+              </div>
+            </div>
+            ${whatsappBtn}${deleteBtn}
+          </div>
+        `;
+      }
 
       if (esEnCurso) {
         return `
