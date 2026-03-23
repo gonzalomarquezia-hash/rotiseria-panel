@@ -14,15 +14,23 @@ async function getSession(req) {
   const token = authHeader.slice(7);
   const now = new Date().toISOString();
 
-  const r = await fetch(
-    `${MAESTRO_URL}/rest/v1/sesiones_panel?token=eq.${encodeURIComponent(token)}&expires_at=gt.${encodeURIComponent(now)}&select=*,clientes(id,slug,activo)`,
-    {
-      headers: {
-        'apikey': MAESTRO_KEY,
-        'Authorization': `Bearer ${MAESTRO_KEY}`
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+
+  let r;
+  try {
+    r = await fetch(
+      `${MAESTRO_URL}/rest/v1/sesiones_panel?token=eq.${encodeURIComponent(token)}&expires_at=gt.${encodeURIComponent(now)}&select=*,clientes(id,slug,activo)`,
+      {
+        headers: { 'apikey': MAESTRO_KEY, 'Authorization': `Bearer ${MAESTRO_KEY}` },
+        signal: controller.signal
       }
-    }
-  );
+    );
+  } catch (e) {
+    clearTimeout(timeout);
+    throw { status: 503, error: 'Servicio no disponible' };
+  }
+  clearTimeout(timeout);
 
   const sesiones = await r.json();
   if (!sesiones || sesiones.length === 0) {
@@ -35,15 +43,22 @@ async function getSession(req) {
   }
 
   // Buscar negocio_id por slug
-  const nr = await fetch(
-    `${MAESTRO_URL}/rest/v1/negocios?slug=eq.${encodeURIComponent(cliente.slug)}&select=id`,
-    {
-      headers: {
-        'apikey': MAESTRO_KEY,
-        'Authorization': `Bearer ${MAESTRO_KEY}`
+  const controller2 = new AbortController();
+  const timeout2 = setTimeout(() => controller2.abort(), 8000);
+  let nr;
+  try {
+    nr = await fetch(
+      `${MAESTRO_URL}/rest/v1/negocios?slug=eq.${encodeURIComponent(cliente.slug)}&select=id`,
+      {
+        headers: { 'apikey': MAESTRO_KEY, 'Authorization': `Bearer ${MAESTRO_KEY}` },
+        signal: controller2.signal
       }
-    }
-  );
+    );
+  } catch (e) {
+    clearTimeout(timeout2);
+    throw { status: 503, error: 'Servicio no disponible' };
+  }
+  clearTimeout(timeout2);
 
   const negocios = await nr.json();
   if (!negocios || negocios.length === 0) {

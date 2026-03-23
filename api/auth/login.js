@@ -4,6 +4,24 @@ const crypto = require('crypto');
 const MAESTRO_URL = process.env.MAESTRO_URL;
 const MAESTRO_KEY = process.env.MAESTRO_SERVICE_KEY;
 
+// Rate limiting en memoria — máx 5 intentos por IP cada 15 minutos
+const intentos = new Map();
+const VENTANA_MS = 15 * 60 * 1000;
+const MAX_INTENTOS = 5;
+
+function verificarRateLimit(ip) {
+  const ahora = Date.now();
+  const entrada = intentos.get(ip) || { count: 0, desde: ahora };
+  if (ahora - entrada.desde > VENTANA_MS) {
+    intentos.set(ip, { count: 1, desde: ahora });
+    return true;
+  }
+  if (entrada.count >= MAX_INTENTOS) return false;
+  entrada.count++;
+  intentos.set(ip, entrada);
+  return true;
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -11,6 +29,11 @@ module.exports = async (req, res) => {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
+
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+  if (!verificarRateLimit(ip)) {
+    return res.status(429).json({ error: 'Demasiados intentos. Esperá 15 minutos.' });
+  }
 
   const { email, password } = req.body || {};
   if (!email || !password) {

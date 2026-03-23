@@ -16,7 +16,7 @@ module.exports = async (req, res) => {
   }
 
   const { negocio_id } = session;
-  const dias = parseInt(req.query?.dias) || 30;
+  const dias = Math.min(Math.max(parseInt(req.query?.dias) || 30, 1), 90);
   const desde = new Date();
   desde.setDate(desde.getDate() - dias);
 
