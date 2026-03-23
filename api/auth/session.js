@@ -40,8 +40,6 @@ module.exports = async (req, res) => {
   return res.status(200).json({
     nombre_negocio: cliente.nombre_negocio,
     slug: cliente.slug,
-    supabase_url: cliente.supabase_url,
-    supabase_key: cliente.supabase_anon_key,
     canal_ntfy: cliente.canal_ntfy,
     plan: cliente.plan,
     vapid_public_key: process.env.VAPID_PUBLIC_KEY || null

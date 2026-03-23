@@ -57,8 +57,6 @@ module.exports = async (req, res) => {
     token,
     nombre_negocio: cliente.nombre_negocio,
     slug: cliente.slug,
-    supabase_url: cliente.supabase_url,
-    supabase_key: cliente.supabase_anon_key,
     canal_ntfy: cliente.canal_ntfy,
     plan: cliente.plan
   });
