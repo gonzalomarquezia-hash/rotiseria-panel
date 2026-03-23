@@ -687,16 +687,17 @@
         <h2>Panel de Control</h2>
         <p>Ingresá con tus credenciales de acceso</p>
       </div>
-      <div class="login-field">
-        <label>Email</label>
-        <input type="email" id="login-email" placeholder="tu@email.com" autocomplete="email">
-      </div>
-      <div class="login-field">
-        <label>Contraseña</label>
-        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
-               onkeydown="if(event.key==='Enter') hacerLogin()">
-      </div>
-      <button class="btn-login" id="btn-login" onclick="hacerLogin()">Ingresar</button>
+      <form id="login-form" action="#" onsubmit="hacerLogin(); return false;" autocomplete="on">
+        <div class="login-field">
+          <label>Email</label>
+          <input type="email" id="login-email" name="email" placeholder="tu@email.com" autocomplete="username">
+        </div>
+        <div class="login-field">
+          <label>Contraseña</label>
+          <input type="password" id="login-password" name="password" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn-login" id="btn-login">Ingresar</button>
+      </form>
       <div id="login-error"></div>
     </div>
   </div>
@@ -2780,6 +2781,7 @@
 
     // Polling — reemplaza Realtime (browser nunca toca Supabase directamente)
     let pollingInterval = null;
+    let polling401Count = 0;
 
     function iniciarPolling() {
       if (!negocio) return;
@@ -2799,14 +2801,18 @@
           const r = await fetch('/api/pedidos', { headers: authHeaders() });
           if (!r.ok) {
             if (r.status === 401) {
-              const body = await r.json().catch(() => ({}));
-              console.error('[Polling] 401 error:', body);
-              localStorage.removeItem('panel_token');
-              mostrarLogin();
-              clearInterval(pollingInterval);
+              polling401Count = (polling401Count || 0) + 1;
+              console.warn('[Polling] 401 consecutivo #' + polling401Count);
+              if (polling401Count >= 3) {
+                console.error('[Polling] 3 errores 401 consecutivos, cerrando sesión');
+                localStorage.removeItem('panel_token');
+                mostrarLogin();
+                clearInterval(pollingInterval);
+              }
             }
             return;
           }
+          polling401Count = 0;
           const nuevos = await r.json();
 
           // Detectar inserts y notificar
