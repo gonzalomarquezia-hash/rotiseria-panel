@@ -1045,7 +1045,7 @@
             <button onclick="mostrarModalCategorias()" class="btn-secondary">
               <i class="fas fa-tags"></i> Categorías
             </button>
-            <button onclick="abrirModalProducto()" class="btn-primary">
+            <button onclick="abrirModalProducto()" class="btn-secondary">
               <i class="fas fa-plus"></i> Producto
             </button>
           </div>
@@ -1288,8 +1288,7 @@
         
         <div>
           <label style="display: block; margin-bottom: 6px; color: var(--wa-text-secondary); font-size: 14px;">Categoría *</label>
-          <input type="text" id="prod-categoria" class="wa-input" placeholder="Ej: Empanadas" list="categorias-list">
-          <datalist id="categorias-list"></datalist>
+          <select id="prod-categoria" class="wa-input" style="cursor: pointer;"></select>
         </div>
         
         <div>
@@ -1334,18 +1333,24 @@
   </div>
 
   <!-- Modal Categorías -->
-  <div id="modal-categorias" class="modal-overlay">
+  <div id="modal-categorias" class="modal-overlay" onclick="if(event.target===this)cerrarModalCategorias()">
     <div class="modal-content" style="max-width: 400px;">
-      <h3 style="margin: 0 0 20px 0; color: var(--wa-text); font-size: 22px;">Categorías</h3>
-      
+      <h3 style="margin: 0 0 24px 0; color: var(--wa-text); font-size: 22px;">Categorías</h3>
+
       <div style="display: flex; gap: 10px; margin-bottom: 20px;">
         <input type="text" id="nueva-categoria" class="wa-input" placeholder="Nueva categoría...">
-        <button onclick="agregarCategoria()" class="btn-primary" style="padding: 12px 18px;">
-          <i class="fas fa-plus"></i>
+      </div>
+
+      <div id="lista-categorias-modal" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px;"></div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <button onclick="cerrarModalCategorias()" style="padding: 14px; background: var(--wa-bg); color: var(--wa-text); border: none; border-radius: 10px; cursor: pointer; font-weight: 600;">
+          Cancelar
+        </button>
+        <button onclick="agregarCategoria()" class="btn-primary" style="width: 100%;">
+          Guardar categoría
         </button>
       </div>
-      
-      <div id="lista-categorias-modal" style="display: flex; flex-direction: column; gap: 10px;"></div>
     </div>
   </div>
 
@@ -2311,17 +2316,22 @@
     }
 
     // Modal Producto
+    function poblarSelectCategorias(valorActual = '') {
+      const cats = [...new Set(todosProductos.map(p => p.categoria).filter(Boolean))].sort();
+      const sel = document.getElementById('prod-categoria');
+      sel.innerHTML = '<option value="" disabled>Seleccionar categoría...</option>' +
+        cats.map(c => `<option value="${c}"${c === valorActual ? ' selected' : ''}>${c}</option>`).join('');
+      if (!valorActual) sel.value = '';
+    }
+
     function abrirModalProducto(producto = null) {
       document.getElementById('modal-producto').style.display = 'flex';
       document.getElementById('modal-titulo').textContent = producto ? 'Editar Producto' : 'Nuevo Producto';
-      
-      const cats = [...new Set(todosProductos.map(p => p.categoria))];
-      document.getElementById('categorias-list').innerHTML = cats.map(c => `<option value="${c}">`).join('');
-      
+
       if (producto) {
         document.getElementById('prod-id').value = producto.id;
         document.getElementById('prod-nombre').value = producto.nombre;
-        document.getElementById('prod-categoria').value = producto.categoria;
+        poblarSelectCategorias(producto.categoria);
         document.getElementById('prod-descripcion').value = producto.descripcion || '';
         document.getElementById('prod-precio').value = producto.precio_unitario ? producto.precio_unitario.toLocaleString('es-AR', {minimumFractionDigits: 2}) : '';
         document.getElementById('prod-media').value = producto.precio_media_docena ? producto.precio_media_docena.toLocaleString('es-AR', {minimumFractionDigits: 2}) : '';
@@ -2330,9 +2340,10 @@
         document.getElementById('btn-eliminar-prod').style.display = 'block';
       } else {
         document.getElementById('prod-id').value = '';
-        ['nombre', 'categoria', 'descripcion', 'precio', 'media', 'docena'].forEach(id => {
+        ['nombre', 'descripcion', 'precio', 'media', 'docena'].forEach(id => {
           document.getElementById('prod-' + id).value = '';
         });
+        poblarSelectCategorias();
         document.getElementById('prod-disponible').checked = true;
         document.getElementById('btn-eliminar-prod').style.display = 'none';
       }
@@ -2341,11 +2352,15 @@
     function cerrarModalProducto() { document.getElementById('modal-producto').style.display = 'none'; }
 
     async function guardarProducto() {
+      const nombre = document.getElementById('prod-nombre').value.trim();
+      const categoria = document.getElementById('prod-categoria').value;
+      if (!nombre) { notificar('Error', 'El nombre es obligatorio'); return; }
+      if (!categoria) { notificar('Error', 'Seleccioná una categoría'); return; }
       const datos = {
         negocio_id: negocio.id,
-        nombre: document.getElementById('prod-nombre').value,
-        categoria: document.getElementById('prod-categoria').value,
-        descripcion: document.getElementById('prod-descripcion').value,
+        nombre,
+        categoria,
+        descripcion: document.getElementById('prod-descripcion').value.trim(),
         precio_unitario: parsePeso(document.getElementById('prod-precio').value),
         precio_media_docena: parsePeso(document.getElementById('prod-media').value) || null,
         precio_docena: parsePeso(document.getElementById('prod-docena').value) || null,
@@ -2406,10 +2421,15 @@
 
     async function agregarCategoria() {
       const nombre = document.getElementById('nueva-categoria').value.trim();
-      if (!nombre) return;
+      if (!nombre) { notificar('Error', 'Escribí el nombre de la categoría'); return; }
       cerrarModalCategorias();
       abrirModalProducto();
-      document.getElementById('prod-categoria').value = nombre;
+      // Add the new category as option if it doesn't exist yet, then select it
+      const sel = document.getElementById('prod-categoria');
+      if (![...sel.options].some(o => o.value === nombre)) {
+        sel.appendChild(new Option(nombre, nombre));
+      }
+      sel.value = nombre;
     }
 
     async function eliminarCategoria(nombre) {
