@@ -1610,6 +1610,7 @@
         actualizarDashboard();
         cargarNotificaciones();
         iniciarPolling();
+        if (localStorage.getItem('seccionActiva') === 'menu') cargarMenu();
       } catch (e) {
         console.error(e);
       }
