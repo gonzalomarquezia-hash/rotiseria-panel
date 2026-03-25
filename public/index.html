@@ -2671,30 +2671,17 @@
       
       const html = ignorarBot.map((item, index) => {
         const telefono = item.Telefono || item.telefono || 'N/A';
-        const motivo = item['Motivo (Opcional)'] || item.motivo || 'Sin motivo';
-        
-        // Formatear numero para mostrar (ej: +54 9 11 5555-1234)
-        let telefonoFormateado = telefono;
-        if (telefono.startsWith('+54')) {
-          // +54 9 11 5555-1234
-          telefonoFormateado = telefono.replace(/(\+54)(9?)(\d{2})(\d{4})(\d{4})/, '$1 $2 $3 $4-$5');
-        } else if (telefono.startsWith('54')) {
-          telefonoFormateado = '+' + telefono.replace(/(54)(9?)(\d{2})(\d{4})(\d{4})/, '$1 $2 $3 $4-$5');
-        }
-        
+        const motivo = item['Motivo (Opcional)'] || item.motivo || '';
+
         return `
-          <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px; background: var(--wa-bg); border-radius: 8px; margin-bottom: 8px;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <div style="width: 40px; height: 40px; background: #dc3545; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600;">
-                <i class="fas fa-ban"></i>
-              </div>
-              <div>
-                <div style="font-weight: 600; color: var(--wa-text); font-family: monospace;">${telefonoFormateado}</div>
-                <div style="font-size: 13px; color: #667781;">${motivo}</div>
-              </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 4px; border-bottom: 1px solid var(--wa-border);">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <i class="fas fa-ban" style="color: #dc3545; font-size: 13px;"></i>
+              <span style="font-size: 15px; color: var(--wa-text); font-weight: 500;">${telefono}</span>
+              ${motivo ? `<span style="font-size: 13px; color: #667781;">· ${motivo}</span>` : ''}
             </div>
-            <button onclick="eliminarNumeroIgnorado(${index})" style="background: none; border: none; color: #dc3545; cursor: pointer; padding: 8px; border-radius: 6px;" title="Eliminar">
-              <i class="fas fa-trash-alt"></i>
+            <button onclick="eliminarNumeroIgnorado(${index})" style="background: none; border: none; color: #dc3545; cursor: pointer; padding: 4px 8px; border-radius: 6px;" title="Eliminar">
+              <i class="fas fa-trash-alt" style="font-size: 13px;"></i>
             </button>
           </div>
         `;
