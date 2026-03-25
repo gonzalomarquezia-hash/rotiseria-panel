@@ -873,9 +873,9 @@
       <div id="sec-inicio" class="section active">
         <div class="content-header">
           <h2 style="font-size: 18px; font-weight: 600; margin: 0;">Dashboard</h2>
-          <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #667781;">
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: rgba(255,255,255,0.8);">
             <span id="dashboard-ultima-actualizacion">Actualizado: ahora</span>
-            <button onclick="actualizarDashboard()" style="background: none; border: none; cursor: pointer; color: #128C7E; padding: 4px;">
+            <button onclick="actualizarDashboard()" style="background: none; border: none; cursor: pointer; color: rgba(255,255,255,0.8); padding: 4px;">
               <i class="fas fa-sync-alt" id="icon-refresh-dashboard"></i>
             </button>
           </div>
@@ -946,10 +946,10 @@
                 <div style="width: 12px; height: 12px; background: #25D366; border-radius: 50%; border: 2px solid white; animation: pulse 2s infinite;"></div>
                 <span style="font-weight: 600;">Bot activo</span>
               </div>
-              <div style="font-size: 14px; opacity: 0.95;">
-                <i class="fab fa-whatsapp" style="margin-right: 6px;"></i>
+              <a id="dashboard-whatsapp-link" href="#" target="_blank" rel="noopener" onclick="return abrirWhatsApp()" style="font-size: 14px; opacity: 0.95; color: white; text-decoration: none; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <i class="fab fa-whatsapp"></i>
                 <span id="dashboard-whatsapp">+54 9 11 XXXX-XXXX</span>
-              </div>
+              </a>
               <div style="font-size: 13px; opacity: 0.9;">
                 Última actividad: <span id="dashboard-ultima-actividad">hace 2 minutos</span>
               </div>
@@ -1144,8 +1144,8 @@
               </div>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                 <div>
-                  <label style="display: block; margin-bottom: 6px; color: var(--wa-text-secondary); font-size: 14px;">Teléfono</label>
-                  <input type="text" id="config-telefono" class="wa-input">
+                  <label style="display: block; margin-bottom: 6px; color: var(--wa-text-secondary); font-size: 14px;">Número de WhatsApp</label>
+                  <input type="text" id="config-telefono" class="wa-input" placeholder="Ej: 5491123456789">
                 </div>
                 <div>
                   <label style="display: block; margin-bottom: 6px; color: var(--wa-text-secondary); font-size: 14px;">Costo Delivery ($)</label>
@@ -1571,6 +1571,13 @@
       }
     }
     
+    function abrirWhatsApp() {
+      const tel = (negocio && negocio.telefono) ? negocio.telefono.replace(/\D/g, '') : '';
+      if (!tel) return false;
+      window.open('https://wa.me/' + tel, '_blank', 'noopener');
+      return false;
+    }
+
     // Toggle sidebar
     function toggleSidebar() {
       const sidebar = document.getElementById('sidebar');
@@ -1684,9 +1691,9 @@
 
       // Actualizar última actividad
       if (todosPedidos && todosPedidos.length > 0) {
-        const ultimoPedido = [...todosPedidos].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+        const ultimoPedido = [...todosPedidos].sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))[0];
         if (ultimoPedido) {
-          const minutos = Math.floor((new Date() - new Date(ultimoPedido.created_at)) / 60000);
+          const minutos = Math.floor((new Date() - new Date(ultimoPedido.updated_at || ultimoPedido.created_at)) / 60000);
           let tiempoStr;
           if (minutos < 1) tiempoStr = 'ahora';
           else if (minutos < 60) tiempoStr = `hace ${minutos} min`;
@@ -2529,6 +2536,10 @@
 
         Object.assign(negocio, datos);
         document.getElementById('titulo-negocio').textContent = datos.nombre;
+        if (datos.telefono) {
+          const telefonoFormateado = datos.telefono.replace(/(\d{2})(\d{1})(\d{4})(\d{4})/, '+$1 $2 $3-$4');
+          document.getElementById('dashboard-whatsapp').textContent = telefonoFormateado;
+        }
         notificar('✅ Guardado', 'Configuración actualizada correctamente');
       } catch (e) {
         notificar('❌ Error', 'No se pudieron guardar los cambios');
