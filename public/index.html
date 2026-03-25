@@ -77,9 +77,21 @@
       display: none;
     }
     .sidebar.collapsed .sidebar-header {
-      padding: 16px;
+      padding: 16px 8px;
       display: flex;
       justify-content: center;
+      gap: 4px;
+    }
+    .sidebar.collapsed .user-section {
+      align-items: center;
+      padding: 12px 8px;
+    }
+    .sidebar.collapsed .user-section > div {
+      justify-content: center;
+      width: auto;
+    }
+    .sidebar.collapsed .cerrar-sesion-btn {
+      display: none !important;
     }
     .sidebar.collapsed #badge-pendientes {
       position: absolute;
@@ -794,7 +806,7 @@
             <p>Panel de Control</p>
           </div>
         </div>
-        <button class="notif-btn sidebar-text" onclick="toggleNotificaciones()" title="Notificaciones">
+        <button class="notif-btn" onclick="toggleNotificaciones()" title="Notificaciones">
           <i class="fas fa-bell"></i>
           <span class="notif-dot" id="notif-dot"></span>
         </button>
@@ -846,7 +858,7 @@
           <span id="realtime-dot" style="width: 8px; height: 8px; background: #9ca3af; border-radius: 50%; flex-shrink: 0;"></span>
         </div>
         <div style="width: 100%; margin-top: 4px;">
-          <button onclick="cerrarSesion()" class="sidebar-text"
+          <button onclick="cerrarSesion()" class="sidebar-text cerrar-sesion-btn"
             style="background: none; border: none; cursor: pointer; color: #ef4444; font-size: 13px; padding: 4px 0; display: flex; align-items: center; gap: 6px;">
             <i class="fas fa-sign-out-alt"></i> Cerrar sesión
           </button>
