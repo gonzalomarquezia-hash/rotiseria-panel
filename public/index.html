@@ -2485,6 +2485,18 @@
 
     let _editandoCategoria = null; // nombre original al editar
 
+    function emojiDerecha(cat) {
+      var s = cat && cat.trimStart ? cat.trimStart() : (cat || '').replace(/^\s+/, '');
+      var cp = s.codePointAt ? s.codePointAt(0) : 0;
+      if (cp >= 0x2600) {
+        var emojiLen = cp > 0xFFFF ? 2 : 1;
+        var emoji = s.slice(0, emojiLen);
+        var rest = s.slice(emojiLen).replace(/^\s+/, '');
+        if (rest) return rest + ' ' + emoji;
+      }
+      return cat;
+    }
+
     function renderCategoriasModal() {
       const cats = [...new Set(todosProductos.map(p => p.categoria))].sort();
       document.getElementById('lista-categorias-modal').innerHTML = cats.map(cat => {
@@ -2492,7 +2504,7 @@
         const tieneProductos = cantProd > 0;
         return `
         <div style="display: flex; align-items: center; gap: 8px; padding: 12px 14px; background: var(--wa-bg); border-radius: 10px;">
-          <span style="flex: 1; font-weight: 500;">${cat}</span>
+          <span style="flex: 1; font-weight: 500;">${emojiDerecha(cat)}</span>
           <span style="font-size: 11px; color: #888; white-space: nowrap;">${cantProd} prod.</span>
           <button onclick="iniciarEdicionCategoria('${cat.replace(/'/g, "\\'")}')" title="Editar" style="padding: 8px 12px; background: #e8f5e9; color: #2e7d32; border: none; border-radius: 8px; cursor: pointer;">
             <i class="fas fa-pencil-alt"></i>
