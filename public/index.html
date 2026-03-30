@@ -1360,10 +1360,10 @@
       <div id="lista-categorias-modal" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px;"></div>
 
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-        <button onclick="cerrarModalCategorias()" style="padding: 14px; background: var(--wa-bg); color: var(--wa-text); border: none; border-radius: 10px; cursor: pointer; font-weight: 600;">
+        <button onclick="cancelarEdicionCategoria()" style="padding: 14px; background: var(--wa-bg); color: var(--wa-text); border: none; border-radius: 10px; cursor: pointer; font-weight: 600;">
           Cancelar
         </button>
-        <button onclick="agregarCategoria()" class="btn-primary" style="width: 100%;">
+        <button id="btn-guardar-cat" onclick="agregarCategoria()" class="btn-primary" style="width: 100%;">
           Guardar categoría
         </button>
       </div>
@@ -2474,24 +2474,81 @@
       document.getElementById('emoji-picker').style.display = 'none';
     }
 
+    let _editandoCategoria = null; // nombre original al editar
+
     function renderCategoriasModal() {
       const cats = [...new Set(todosProductos.map(p => p.categoria))].sort();
-      document.getElementById('lista-categorias-modal').innerHTML = cats.map(cat => `
-        <div style="display: flex; align-items: center; gap: 10px; padding: 14px; background: var(--wa-bg); border-radius: 10px;">
+      document.getElementById('lista-categorias-modal').innerHTML = cats.map(cat => {
+        const cantProd = todosProductos.filter(p => p.categoria === cat).length;
+        const tieneProductos = cantProd > 0;
+        return `
+        <div style="display: flex; align-items: center; gap: 8px; padding: 12px 14px; background: var(--wa-bg); border-radius: 10px;">
           <span style="flex: 1; font-weight: 500;">${cat}</span>
-          <button onclick="eliminarCategoria('${cat}')" style="padding: 10px 14px; background: #ffe1e1; color: #c62828; border: none; border-radius: 8px; cursor: pointer;">
+          <span style="font-size: 11px; color: #888; white-space: nowrap;">${cantProd} prod.</span>
+          <button onclick="iniciarEdicionCategoria('${cat.replace(/'/g, "\\'")}')" title="Editar" style="padding: 8px 12px; background: #e8f5e9; color: #2e7d32; border: none; border-radius: 8px; cursor: pointer;">
+            <i class="fas fa-pencil-alt"></i>
+          </button>
+          <button onclick="eliminarCategoria('${cat.replace(/'/g, "\\'")}', ${tieneProductos}, ${cantProd})" title="Eliminar" style="padding: 8px 12px; background: #ffe1e1; color: #c62828; border: none; border-radius: 8px; cursor: pointer;">
             <i class="fas fa-trash"></i>
           </button>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
+    }
+
+    function iniciarEdicionCategoria(nombre) {
+      _editandoCategoria = nombre;
+      const input = document.getElementById('nueva-categoria');
+      input.value = nombre;
+      input.focus();
+      input.select();
+      const btn = document.getElementById('btn-guardar-cat');
+      btn.textContent = 'Renombrar categoría';
+      btn.style.background = '#2e7d32';
+    }
+
+    function cancelarEdicionCategoria() {
+      if (_editandoCategoria) {
+        _editandoCategoria = null;
+        document.getElementById('nueva-categoria').value = '';
+        const btn = document.getElementById('btn-guardar-cat');
+        btn.textContent = 'Guardar categoría';
+        btn.style.background = '';
+      } else {
+        cerrarModalCategorias();
+      }
     }
 
     async function agregarCategoria() {
       const nombre = document.getElementById('nueva-categoria').value.trim();
       if (!nombre) { notificar('Error', 'Escribí el nombre de la categoría'); return; }
+
+      // Modo edición: renombrar categoría existente
+      if (_editandoCategoria) {
+        const anterior = _editandoCategoria;
+        if (nombre === anterior) { cancelarEdicionCategoria(); return; }
+        const afectados = todosProductos.filter(p => p.categoria === anterior);
+        await Promise.all(afectados.map(p =>
+          fetch('/api/productos/' + p.id, {
+            method: 'PUT',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ categoria: nombre })
+          })
+        ));
+        todosProductos.forEach(p => { if (p.categoria === anterior) p.categoria = nombre; });
+        _editandoCategoria = null;
+        document.getElementById('nueva-categoria').value = '';
+        const btn = document.getElementById('btn-guardar-cat');
+        btn.textContent = 'Guardar categoría';
+        btn.style.background = '';
+        renderCategoriasModal();
+        cargarMenu();
+        notificar('Listo', `Categoría renombrada a "${nombre}"`);
+        return;
+      }
+
+      // Modo creación: abrir modal de producto con la nueva categoría seleccionada
       cerrarModalCategorias();
       abrirModalProducto();
-      // Add the new category as option if it doesn't exist yet, then select it
       const sel = document.getElementById('prod-categoria');
       if (![...sel.options].some(o => o.value === nombre)) {
         sel.appendChild(new Option(nombre, nombre));
@@ -2499,17 +2556,12 @@
       sel.value = nombre;
     }
 
-    async function eliminarCategoria(nombre) {
-      if (!confirm(`¿Eliminar "${nombre}"?`)) return;
-      // Actualizar cada producto de esta categoría
-      const afectados = todosProductos.filter(p => p.categoria === nombre);
-      await Promise.all(afectados.map(p =>
-        fetch('/api/productos/' + p.id, {
-          method: 'PUT',
-          headers: authHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({ categoria: 'Sin categoría' })
-        })
-      ));
+    async function eliminarCategoria(nombre, tieneProductos, cantProd) {
+      if (tieneProductos) {
+        notificar('No se puede eliminar', `"${nombre}" tiene ${cantProd} producto${cantProd > 1 ? 's' : ''}. Reasignalos o eliminalos primero.`);
+        return;
+      }
+      if (!confirm(`¿Eliminar la categoría "${nombre}"?`)) return;
       todosProductos.forEach(p => { if (p.categoria === nombre) p.categoria = 'Sin categoría'; });
       renderCategoriasModal();
       cargarMenu();
