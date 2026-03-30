@@ -1349,8 +1349,12 @@
     <div class="modal-content" style="max-width: 400px;">
       <h3 style="margin: 0 0 24px 0; color: var(--wa-text); font-size: 22px;">Categorías</h3>
 
-      <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+      <div style="display: flex; gap: 10px; margin-bottom: 20px; position: relative;">
+        <button type="button" onclick="toggleEmojiPicker()" title="Agregar emoji" style="padding: 0 14px; background: var(--wa-bg); border: 1px solid var(--wa-border, #ddd); border-radius: 10px; cursor: pointer; font-size: 20px; flex-shrink: 0;">😊</button>
         <input type="text" id="nueva-categoria" class="wa-input" placeholder="Nueva categoría...">
+        <div id="emoji-picker" style="display:none; position:absolute; top:110%; left:0; background:#fff; border:1px solid #ddd; border-radius:12px; padding:10px; box-shadow:0 4px 16px rgba(0,0,0,0.15); z-index:9999; display:none; flex-wrap:wrap; gap:6px; width:280px;">
+          <span style="width:100%; font-size:11px; color:#888; margin-bottom:4px; display:block;">Toca un emoji para agregarlo al nombre</span>
+        </div>
       </div>
 
       <div id="lista-categorias-modal" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px;"></div>
@@ -2421,11 +2425,54 @@
     }
 
     // Categorías
+    // ── Emoji picker para categorias ──
+    const EMOJIS_MENU = [
+      '🍕','🍗','🥩','🫔','🥚','🍔','🌮','🌯','🥗','🥘',
+      '🍜','🍝','🫕','🍱','🥡','🍣','🥐','🥖','🍞','🧁',
+      '🎂','🍰','🍩','🍪','🍫','🍬','🍭','🍷','🍺','🥤',
+      '🧃','☕','🫖','🍵','🥂','🥃','🫙','🧆','🥙','🫓',
+      '🥪','🍟','🥓','🍖','🥞','🧇','🧈','🥑','🥦','🫑'
+    ];
+
+    function toggleEmojiPicker() {
+      const picker = document.getElementById('emoji-picker');
+      const visible = picker.style.display === 'flex';
+      if (visible) { picker.style.display = 'none'; return; }
+      // Renderizar emojis si no se hizo antes
+      if (!picker.dataset.rendered) {
+        picker.innerHTML = '<span style="width:100%; font-size:11px; color:#888; margin-bottom:4px; display:block;">Toca un emoji para agregarlo al nombre</span>' +
+          EMOJIS_MENU.map(e =>
+            `<span onclick="insertarEmoji('${e}')" style="font-size:22px; cursor:pointer; padding:3px; border-radius:6px; line-height:1;" title="${e}">${e}</span>`
+          ).join('');
+        picker.dataset.rendered = '1';
+      }
+      picker.style.display = 'flex';
+      // Cerrar al hacer click fuera
+      setTimeout(() => document.addEventListener('click', cerrarEmojiOutside, { once: true }), 0);
+    }
+
+    function cerrarEmojiOutside(e) {
+      const picker = document.getElementById('emoji-picker');
+      if (!picker.contains(e.target)) picker.style.display = 'none';
+    }
+
+    function insertarEmoji(emoji) {
+      const input = document.getElementById('nueva-categoria');
+      // Si ya empieza con un emoji (unicode > U+00FF), reemplazarlo
+      const texto = input.value.replace(/^[\u{1F000}-\u{1FFFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]\s*/u, '');
+      input.value = emoji + ' ' + texto;
+      document.getElementById('emoji-picker').style.display = 'none';
+      input.focus();
+    }
+
     function mostrarModalCategorias() {
       document.getElementById('modal-categorias').style.display = 'flex';
       renderCategoriasModal();
     }
-    function cerrarModalCategorias() { document.getElementById('modal-categorias').style.display = 'none'; }
+    function cerrarModalCategorias() {
+      document.getElementById('modal-categorias').style.display = 'none';
+      document.getElementById('emoji-picker').style.display = 'none';
+    }
 
     function renderCategoriasModal() {
       const cats = [...new Set(todosProductos.map(p => p.categoria))].sort();
